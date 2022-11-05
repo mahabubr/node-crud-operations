@@ -23,6 +23,7 @@ const handleInputBlur = (event) => {
     <button type="submit">Add User</button>
 </form>
 ```
+
 <br/>
 <br/>
 
@@ -198,10 +199,11 @@ run()
 ```
 <button onClick={() => handleStatusUpdate(_id)}className="btn btn-ghost btn-xs">{status ? status : 'pending'}</button>
 ```
+
 ```
  const handleStatusUpdate = id => {
         fetch(`http://localhost:5000/orders/${id}`, {
-            method: 'PATCH', 
+            method: 'PATCH',
             headers: {
                 'content-type': 'application/json'
             },
@@ -223,6 +225,7 @@ run()
 ```
 
 ### Server Side
+
 ```
 async function run() {
     try {
@@ -381,7 +384,7 @@ const pages = Math.ceil(count / size);
 
 ```
 {
-    [...Array(pages).keys()].map(number => 
+    [...Array(pages).keys()].map(number =>
 <button
     key={number}
     className={page === number ? 'selected' : ''}
@@ -412,6 +415,7 @@ useEffect(() => {
         })
 }, [page, size])
 ```
+
 <br/>
 
 ## Server Side
@@ -443,6 +447,7 @@ run()
 
 <br>
 <br>
+<br>
 
 # Local Storage Connect Post
 
@@ -452,7 +457,7 @@ run()
 useEffect(() => {
         const storedCart = getStoredCart();
         const savedCart = [];
-        const ids = Object.keys(storedCart); 
+        const ids = Object.keys(storedCart);
         console.log(ids);
         fetch('http://localhost:5000/productsByIds', {
             method: 'POST',
@@ -474,9 +479,10 @@ useEffect(() => {
         setCart(savedCart);
 
         })
-        
+
     }, [products])
 ```
+
 <br />
 
 ## Server Side
@@ -495,6 +501,143 @@ async function run() {
         const products = await cursor.toArray();
         res.send(products);
     })
+
+}
+catch(e) {
+    console.error(e)
+    }
+}
+
+run()
+```
+
+<br />
+<br />
+<br />
+
+# JSON Web Token (JWT/JOT)
+
+## Client Side
+
+```
+    // Inside To Login
+
+const currentUser = {
+    email: user.email
+}
+```
+
+```
+    // get jwt token
+
+fetch('http://localhost:5000/jwt', {
+    method: 'POST',
+    headers: {
+        'content-type': 'application/json'
+    },
+    body: JSON.stringify(currentUser)
+})
+    .then(res => res.json())
+    .then(data => {
+        localStorage.setItem('genius-token', data.token);
+        navigate(from, { replace: true });
+    });
+```
+
+```
+useEffect(() => {
+    fetch(`http://localhost:5000/orders?email=${user?.email}`, {
+        headers: {
+            authorization: `Bearer ${localStorage.getItem('genius-token')}`
+        }
+    })
+        .then(res => {
+            if (res.status === 401 || res.status === 403) {
+                return logOut();
+            }
+            return res.json();
+        })
+        .then(data => {
+            setOrders(data);
+        })
+}, [user?.email, logOut])
+```
+
+<br />
+
+## Server Side
+
+```
+Node Command -
+require('crypto').randomBytes(64).toString('hex')
+```
+
+```
+async function run() {
+    try {
+
+    const userCollection = client.db('nodeMongoCrud').collection('users')
+
+    app.post('/jwt', (req, res) =>{
+        const user = req.body;
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1d'})
+        res.send({token})
+    })
+
+}
+catch(e) {
+    console.error(e)
+    }
+}
+
+run()
+```
+
+```
+// Middle Were (JWT)
+
+function verifyJWT(req, res, next){
+    const authHeader = req.headers.authorization;
+
+    if(!authHeader){
+        return res.status(401).send({message: 'unauthorized access'});
+    }
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function(err, decoded){
+        if(err){
+            return res.status(403).send({message: 'Forbidden access'});
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
+```
+
+```
+async function run() {
+    try {
+
+    const userCollection = client.db('nodeMongoCrud').collection('users')
+
+    app.get('/orders', verifyJWT, async (req, res) => {
+
+        const decoded = req.decoded;
+
+        if(decoded.email !== req.query.email){
+            res.status(403).send({message: 'unauthorized access'})
+        }
+
+        let query = {};
+        if (req.query.email) {
+            query = {
+                email: req.query.email
+            }
+        }
+        const cursor = orderCollection.find(query);
+        const orders = await cursor.toArray();
+        res.send(orders);
+    });
 
 }
 catch(e) {
