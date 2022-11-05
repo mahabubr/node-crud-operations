@@ -164,13 +164,6 @@ async function run() {
     try {
         const userCollection = client.db('nodeMongoCrud').collection('users')
 
-        app.get('/users/:id', async (req, res) => {
-            const id = req.params.id
-            const query = { _id: ObjectId(id) }
-            const user = await userCollection.findOne(query)
-            res.send(user)
-        })
-
         app.put('/users/:id', async (req, res) => {
             const id = req.params.id
             const filter = { _id: ObjectId(id) }
@@ -194,6 +187,55 @@ async function run() {
 }
 
 run()
+```
+
+<br/>
+
+## Alternative PATCH
+
+### Client Side
+
+```
+<button onClick={() => handleStatusUpdate(_id)}className="btn btn-ghost btn-xs">{status ? status : 'pending'}</button>
+```
+```
+ const handleStatusUpdate = id => {
+        fetch(`http://localhost:5000/orders/${id}`, {
+            method: 'PATCH', 
+            headers: {
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify({status: 'Approved'})
+        })
+        .then(res => res.json())
+        .then(data => {
+            console.log(data);
+            if(data.modifiedCount > 0) {
+                const remaining = orders.filter(odr => odr._id !== id);
+                const approving = orders.find(odr => odr._id === id);
+                approving.status = 'Approved'
+
+                const newOrders = [approving, ...remaining];
+                setOrders(newOrders);
+            }
+        })
+    }
+```
+
+### Server Side
+```
+app.patch('/orders/:id', async (req, res) => {
+    const id = req.params.id;
+    const status = req.body.status
+    const query = { _id: ObjectId(id) }
+    const updatedDoc = {
+        $set:{
+            status: status
+        }
+    }
+    const result = await orderCollection.updateOne(query, updatedDoc);
+    res.send(result);
+})
 ```
 
 <br/>
@@ -252,4 +294,42 @@ async function run() {
 }
 
 run()
+```
+
+<br/>
+<br/>
+<br/>
+
+# Query Parameter Load Data
+
+## Client Side
+
+```
+const [orders, setOrders] = useState([])
+
+useEffect(() => {
+    fetch(`http://localhost:5000/orders?email=${user?.email}`)
+        .then(res => res.json())
+        .then(data => setOrders(data))
+}, [user?.email])
+```
+
+<br/>
+
+## Server Side
+
+```
+app.get('/orders', async (req, res) => {
+
+    let query = {}
+    if (req.query.email) {
+        query = {
+            email: req.query.email
+        }
+    }
+    const cursor = orderCollection.find(query)
+    const orders = await cursor.toArray()
+    res.send(orders)
+
+})
 ```
