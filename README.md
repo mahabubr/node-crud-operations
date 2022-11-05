@@ -224,18 +224,29 @@ run()
 
 ### Server Side
 ```
-app.patch('/orders/:id', async (req, res) => {
-    const id = req.params.id;
-    const status = req.body.status
-    const query = { _id: ObjectId(id) }
-    const updatedDoc = {
-        $set:{
-            status: status
+async function run() {
+    try {
+        const userCollection = client.db('nodeMongoCrud').collection('users')
+
+        app.patch('/orders/:id', async (req, res) => {
+        const id = req.params.id;
+        const status = req.body.status
+        const query = { _id: ObjectId(id) }
+        const updatedDoc = {
+            $set:{
+                status: status
+            }
         }
+        const result = await orderCollection.updateOne(query, updatedDoc);
+        res.send(result);
+    })
+}
+catch(e) {
+    console.error(e)
     }
-    const result = await orderCollection.updateOne(query, updatedDoc);
-    res.send(result);
-})
+}
+
+run()
 ```
 
 <br/>
@@ -319,7 +330,12 @@ useEffect(() => {
 ## Server Side
 
 ```
-app.get('/orders', async (req, res) => {
+async function run() {
+    try {
+
+    const userCollection = client.db('nodeMongoCrud').collection('users')
+
+    app.get('/orders', async (req, res) => {
 
     let query = {}
     if (req.query.email) {
@@ -330,6 +346,161 @@ app.get('/orders', async (req, res) => {
     const cursor = orderCollection.find(query)
     const orders = await cursor.toArray()
     res.send(orders)
-
 })
+
+}
+catch(e) {
+    console.error(e)
+    }
+}
+
+run()
+```
+
+<br/>
+<br/>
+<br/>
+
+# Pagination
+
+## Client Side
+
+```
+// const { products, count } = useLoaderData();
+
+const [products, setProducts] = useState([]);
+const [count, setCount] = useState(0);
+const [cart, setCart] = useState([]);
+const [page, setPage] = useState(0);
+const [size, setSize] = useState(10);
+```
+
+```
+const pages = Math.ceil(count / size);
+```
+
+```
+{
+    [...Array(pages).keys()].map(number => 
+<button
+    key={number}
+    className={page === number ? 'selected' : ''}
+    onClick={() => setPage(number)}
+    >
+    {number + 1}
+</button>)
+}
+```
+
+```
+<select onChange={event => setSize(event.target.value)}>
+    <option value="5">5</option>
+    <option value="10" selected>10</option>
+    <option value="15">15</option>
+    <option value="20">20</option>
+</select>
+```
+
+```
+useEffect(() => {
+    const url = `http://localhost:5000/products?page=${page}&size=${size}`;
+    fetch(url)
+        .then(res => res.json())
+        .then(data => {
+            setCount(data.count);
+            setProducts(data.products);
+        })
+}, [page, size])
+```
+<br/>
+
+## Server Side
+
+```
+async function run() {
+    try {
+
+    const userCollection = client.db('nodeMongoCrud').collection('users')
+
+    app.get('/products', async(req, res) =>{
+        const page = parseInt(req.query.page);
+        const size = parseInt(req.query.size);
+        const query = {}
+        const cursor = productCollection.find(query);
+        const products = await cursor.skip(page*size).limit(size).toArray();
+        const count = await productCollection.estimatedDocumentCount();
+        res.send({count, products});
+    });
+
+}
+catch(e) {
+    console.error(e)
+    }
+}
+
+run()
+```
+
+<br>
+<br>
+
+# Local Storage Connect Post
+
+## Client Side
+
+```
+useEffect(() => {
+        const storedCart = getStoredCart();
+        const savedCart = [];
+        const ids = Object.keys(storedCart); 
+        console.log(ids);
+        fetch('http://localhost:5000/productsByIds', {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json'
+            },
+            body: JSON.stringify(ids)
+        })
+        .then(res => res.json())
+        .then(data => {
+            for (const id in storedCart) {
+            const addedProduct = data.find(product => product._id === id);
+            if (addedProduct) {
+                const quantity = storedCart[id];
+                addedProduct.quantity = quantity;
+                savedCart.push(addedProduct);
+            }
+        }
+        setCart(savedCart);
+
+        })
+        
+    }, [products])
+```
+<br />
+
+## Server Side
+
+```
+async function run() {
+    try {
+
+    const userCollection = client.db('nodeMongoCrud').collection('users')
+
+    app.post('/productsByIds', async(req, res) =>{
+        const ids = req.body;
+        const objectIds = ids.map(id => ObjectId(id))
+        const query = {_id: {$in: objectIds}};
+        const cursor = productCollection.find(query);
+        const products = await cursor.toArray();
+        res.send(products);
+    })
+
+}
+catch(e) {
+    console.error(e)
+    }
+}
+
+run()
 ```
