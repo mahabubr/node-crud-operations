@@ -161,6 +161,16 @@ fetch(`http://localhost:5000/users/${storeUser._id}`, {
 ## Server Side
 
 ```
+app.get('/users/:id', async (req, res) => {
+    const id = req.params.id
+    const query = { _id: ObjectId(id) }
+
+    const user = await userCollection.findOne(query)
+    res.send(user)
+})
+```
+
+```
 async function run() {
     try {
         const userCollection = client.db('nodeMongoCrud').collection('users')
